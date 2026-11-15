@@ -142,27 +142,21 @@ export default {
         const name=decodeURIComponent(p.slice('/api/media/'.length));
         if(!/^[A-Za-z0-9._-]{1,150}$/.test(name))return fail('Invalid file name');
         if(!configured(env))return fail('Media storage not configured',404);
-        // Raw media representation handles GitHub files >1 MB, where JSON content can be empty.
-        const rawUrl=new URL(ghUrl(env,`public/uploads/${name}`));
-        rawUrl.searchParams.set('ref',env.GITHUB_BRANCH||'main');
-        const raw=await fetch(rawUrl,{headers:{...ghHeaders(env),accept:'application/vnd.github.raw+json'}});
-        if(raw.status===404)return fail('Image not found',404);
-        if(!raw.ok)throw new Error(`GitHub media read failed (${raw.status})`);
-        let bytes;
-        if((raw.headers.get('content-type')||'').includes('json')){
-          const file=await raw.json();
-          if(file.content){bytes=base64ToBytes(file.content);}
-          else if(file.sha){
-            const blobUrl=`https://api.github.com/repos/${encodeURIComponent(env.GITHUB_OWNER)}/${encodeURIComponent(env.GITHUB_REPO)}/git/blobs/${encodeURIComponent(file.sha)}`;
-            const blob=await fetch(blobUrl,{headers:ghHeaders(env)});
-            if(!blob.ok)throw new Error(`GitHub blob read failed (${blob.status})`);
-            const payload=await blob.json();
-            if(payload.encoding!=='base64'||!payload.content)return fail('Image data unavailable',502);
-            bytes=base64ToBytes(payload.content);
-          }else return fail('Image data unavailable',502);
-        }else bytes=new Uint8Array(await raw.arrayBuffer());
+
+        // Resolve the file via the same Contents API used for uploads, then
+        // read the binary from Git's blob API. This avoids GitHub's raw-media
+        // content negotiation and reliably handles images above 1 MB.
+        const file=await getGhFile(env,`public/uploads/${name}`);
+        if(!file || file.type!=='file' || !file.sha)return fail('Image not found',404);
+        const blobUrl=`https://api.github.com/repos/${encodeURIComponent(env.GITHUB_OWNER)}/${encodeURIComponent(env.GITHUB_REPO)}/git/blobs/${encodeURIComponent(file.sha)}`;
+        const blob=await fetch(blobUrl,{headers:ghHeaders(env)});
+        if(!blob.ok)return fail(`이미지 읽기 실패 (GitHub ${blob.status}). 저장소 접근 권한을 확인해 주세요.`,502);
+        const payload=await blob.json();
+        if(payload.encoding!=='base64'||typeof payload.content!=='string')return fail('이미지 데이터를 읽지 못했습니다.',502);
+        const bytes=base64ToBytes(payload.content);
         const ext=name.split('.').pop().toLowerCase();
         const mime=ext==='png'?'image/png':ext==='webp'?'image/webp':ext==='gif'?'image/gif':'image/jpeg';
+        if(!sniffImage(bytes,mime))return fail('이미지 파일의 형식을 확인할 수 없습니다.',502);
         return new Response(bytes,{headers:{'content-type':mime,'cache-control':'public, max-age=60','x-content-type-options':'nosniff'}});
       }
 
