@@ -7,3 +7,18 @@
 
 .font-live-preview{border:1px solid #d1e1e7;background:linear-gradient(130deg,#eef8fa,#f9fcfd);padding:24px;line-height:1.65;word-break:keep-all;font-size:clamp(18px,2vw,28px);color:#203846;min-height:100px}
 .font-code-paste{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important;font-size:12px!important;white-space:pre-wrap}
+
+/* Character-only interactive cropping overlay */
+.crop-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(15,34,45,.78);display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto}
+.crop-dialog{width:min(860px,100%);max-height:calc(100dvh - 36px);overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 22px 75px #081b2a70;padding:24px;color:#183646}
+.crop-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+.crop-header h2{font-size:20px;margin:0 0 6px}.crop-header p{font-size:12px;color:#6b8491;margin:0}
+.crop-close{background:transparent;border:0;color:#244a5b;font-size:24px;cursor:pointer}
+.crop-layout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(215px,.8fr);gap:20px;align-items:start}
+.crop-canvas-box{display:flex;align-items:center;justify-content:center;padding:12px;min-height:240px;background:repeating-conic-gradient(#e4ebef 0% 25%,#f7f9fa 0% 50%) 50%/20px 20px;border:1px solid #d2e2e9;border-radius:7px}
+.crop-canvas{display:block;max-width:100%;max-height:min(55dvh,530px);width:auto;height:auto;object-fit:contain;cursor:grab;touch-action:none;box-shadow:0 5px 20px #112c3c35}
+.crop-canvas:active{cursor:grabbing}.crop-controls{display:flex;flex-direction:column;gap:10px}
+.crop-controls label{font-size:12px;font-weight:750;color:#395666}.crop-controls select{width:100%;padding:12px;border:1px solid #bed3df;background:white;font-size:13px}
+.crop-controls input[type=range]{width:100%;accent-color:#247b9a}.crop-zoom-number{float:right;font-weight:500;color:#67838d}
+.crop-help{font-size:12px;line-height:1.9;color:#65808b}.crop-actions{display:flex;gap:8px;flex-wrap:wrap}.crop-feedback{min-height:18px;font-size:12px;color:#a3313b;line-height:1.6}
+@media(max-width:650px){.crop-dialog{padding:16px}.crop-layout{grid-template-columns:1fr}.crop-canvas{max-height:36dvh}.crop-header h2{font-size:18px}.crop-controls{gap:7px}.crop-help{margin:4px 0}}

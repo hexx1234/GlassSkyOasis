@@ -119,11 +119,106 @@
     box.append(img);
   }
   function uploadWidget(fieldName){return `<div class="field full"><label>이미지 파일 업로드 (GitHub 저장)</label><input class="image-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload-field="${esc(fieldName)}"><div class="upload-note">JPG · PNG · WEBP · GIF / 파일당 8MB 이하. 업로드하면 GitHub에 이미지 파일이 바로 저장됩니다.</div></div>`;}
+  // Character images only: pan-and-zoom crop before the existing GitHub upload API.
+  function characterUploadWidget(){
+    return `<div class="field full"><label>캐릭터 이미지 업로드 · 원하는 부분 자르기</label><input class="character-crop-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="upload-note">이미지를 고르면 자르기 창이 열립니다. 드래그로 위치를 조절하고 확대·축소한 다음 '자르고 업로드'를 누르세요. 8MB 이하 · JPG/PNG/WEBP/GIF(애니메이션은 정지 이미지로 저장).</div></div>`;
+  }
+  async function uploadImageFile(file, fieldName, target, onFinish){
+    if(file.size>8*1024*1024)throw new Error('8MB 이하의 이미지를 선택해 주세요.');
+    const content=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(String(reader.result).split(',')[1]);
+      reader.onerror=()=>reject(new Error('이미지를 읽지 못했습니다.'));
+      reader.readAsDataURL(file);
+    });
+    const response=await api('/api/upload','POST',{name:file.name,mimeType:file.type,base64:content});
+    target[fieldName]=response.path;
+    dirty=true;
+    if(onFinish)onFinish();
+  }
+  async function openCharacterCrop(file, recordId){
+    if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))throw new Error('JPG, PNG, WEBP, GIF 이미지만 사용할 수 있습니다.');
+    if(file.size>8*1024*1024)throw new Error('8MB 이하 이미지만 사용할 수 있습니다.');
+    const objectUrl=URL.createObjectURL(file);
+    let modal=null, source=null;
+    try{
+      source=new Image();source.src=objectUrl;
+      await source.decode();
+      if(!source.naturalWidth||!source.naturalHeight)throw new Error('이미지 크기를 읽을 수 없습니다.');
+      const template=`<div class="crop-dialog" role="dialog" aria-modal="true" aria-label="캐릭터 이미지 자르기"><div class="crop-header"><div><h2>캐릭터 이미지 자르기</h2><p>이미지를 드래그해 원하는 부분을 가운데에 놓으세요.</p></div><button class="crop-close" type="button" aria-label="닫기">✕</button></div><div class="crop-layout"><div class="crop-canvas-box"><canvas class="crop-canvas" width="600" height="800" aria-label="이미지 자르기 미리보기"></canvas></div><div class="crop-controls"><label for="crop-aspect">자르기 비율</label><select id="crop-aspect"><option value="3:4">3:4 · 캐릭터 세로형</option><option value="1:1">1:1 · 정사각형</option><option value="free">원본 비율 유지</option></select><label for="crop-zoom">확대 / 축소 <output class="crop-zoom-number">100%</output></label><input id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1"><p class="crop-help">드래그: 위치 변경<br>슬라이더: 확대 / 축소<br>원본 파일은 그대로 보존되며, 잘라낸 이미지만 업로드됩니다.</p><div class="crop-actions"><button class="admin-button ghost crop-cancel" type="button">취소</button><button class="admin-button crop-confirm" type="button">자르고 업로드</button></div><p class="crop-feedback" role="status" aria-live="polite"></p></div></div></div>`;
+      modal=document.createElement('div');modal.className='crop-backdrop';modal.innerHTML=template;document.body.appendChild(modal);
+      const canvas=modal.querySelector('canvas');const context=canvas.getContext('2d');
+      if(!context)throw new Error('브라우저에서 이미지 편집을 지원하지 않습니다.');
+      const ratioSelect=modal.querySelector('#crop-aspect'), zoomInput=modal.querySelector('#crop-zoom');
+      const zoomNumber=modal.querySelector('.crop-zoom-number');const feedback=modal.querySelector('.crop-feedback');
+      let zoom=1,offsetX=0,offsetY=0,drag=null,locked=false;
+      const render=()=>{
+        const W=canvas.width,H=canvas.height;
+        const minScale=Math.max(W/source.naturalWidth,H/source.naturalHeight);
+        const scale=minScale*zoom;
+        const drawW=source.naturalWidth*scale,drawH=source.naturalHeight*scale;
+        const limitX=Math.max(0,(drawW-W)/2),limitY=Math.max(0,(drawH-H)/2);
+        offsetX=Math.max(-limitX,Math.min(limitX,offsetX));
+        offsetY=Math.max(-limitY,Math.min(limitY,offsetY));
+        context.clearRect(0,0,W,H);
+        context.drawImage(source,(W-drawW)/2+offsetX,(H-drawH)/2+offsetY,drawW,drawH);
+      };
+      function changeRatio(){
+        const choice=ratioSelect.value;
+        if(choice==='1:1'){canvas.width=720;canvas.height=720;}
+        else if(choice==='free'){
+          const naturalRatio=source.naturalWidth/source.naturalHeight;
+          if(naturalRatio>=1){canvas.width=720;canvas.height=Math.max(200,Math.round(720/naturalRatio));}
+          else{canvas.height=960;canvas.width=Math.max(200,Math.round(960*naturalRatio));}
+        }else{canvas.width=720;canvas.height=960;}
+        offsetX=0;offsetY=0;zoom=1;zoomInput.value='1';zoomNumber.textContent='100%';render();
+      }
+      changeRatio();
+      ratioSelect.addEventListener('change',changeRatio);
+      zoomInput.addEventListener('input',()=>{zoom=Number(zoomInput.value);zoomNumber.textContent=`${Math.round(zoom*100)}%`;render();});
+      canvas.addEventListener('pointerdown',e=>{if(locked)return;drag={x:e.clientX,y:e.clientY,offsetX,offsetY};canvas.setPointerCapture(e.pointerId);});
+      canvas.addEventListener('pointermove',e=>{
+        if(!drag||locked)return;
+        const rect=canvas.getBoundingClientRect();
+        offsetX=drag.offsetX+(e.clientX-drag.x)*(canvas.width/rect.width);
+        offsetY=drag.offsetY+(e.clientY-drag.y)*(canvas.height/rect.height);
+        render();
+      });
+      canvas.addEventListener('pointerup',()=>{drag=null;});canvas.addEventListener('pointercancel',()=>{drag=null;});
+      const close=()=>{if(locked)return;modal.remove();modal=null;};
+      modal.querySelector('.crop-close').addEventListener('click',close);
+      modal.querySelector('.crop-cancel').addEventListener('click',close);
+      modal.addEventListener('click',e=>{if(e.target===modal)close();});
+      const onKey=e=>{if(e.key==='Escape'&&modal&&!locked){close();document.removeEventListener('keydown',onKey);}};
+      document.addEventListener('keydown',onKey);
+      const upload=async()=>{
+        if(locked)return;
+        const target=data.characters.find(c=>c.id===recordId);
+        if(!target){feedback.textContent='캐릭터를 찾을 수 없습니다. 다시 열어 주세요.';return;}
+        locked=true;const button=modal.querySelector('.crop-confirm');button.disabled=true;
+        feedback.textContent='잘라낸 이미지를 업로드하고 있습니다…';
+        try{
+          const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('이미지 생성에 실패했습니다.')),'image/webp',0.9));
+          const imageFile=new File([blob],`character-${Date.now()}.webp`,{type:'image/webp'});
+          await uploadImageFile(imageFile,'image',target);
+          modal.remove();modal=null;document.removeEventListener('keydown',onKey);
+          renderStudio();status('캐릭터 이미지 자르기 및 업로드 완료! 변경사항 저장을 눌러 연결해 주세요.');
+        }catch(e){feedback.textContent=e.message||'업로드에 실패했습니다.';button.disabled=false;locked=false;}
+      };
+      modal.querySelector('.crop-confirm').addEventListener('click',upload);
+      return new Promise(resolve=>{
+        const watcher=new MutationObserver(()=>{
+          if(!modal||!modal.isConnected){watcher.disconnect();document.removeEventListener('keydown',onKey);resolve();}
+        });
+        watcher.observe(document.body,{childList:true});
+      });
+    }finally{URL.revokeObjectURL(objectUrl);if(modal?.isConnected)modal.remove();}
+  }
   function recordForm(type,r){
     const footer=`<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:26px"><button class="admin-button danger" data-action="delete" data-type="${type}">이 항목 삭제</button></div>`;
     if(type==='characters')return `${heading('캐릭터 정보','소개와 스킬을 편집하고 이미지를 업로드하세요. 저장 버튼을 눌러야 텍스트가 공개됩니다.')}<div class="form-grid">
     ${field('한글 이름','name',r.name)}${field('영문 이름','en',r.en)}${field('등록 번호','registration',r.registration)}${field('종족','species',r.species)}${field('나이','age',r.age)}${field('전투 포지션','role',r.role)}${field('속성','attribute',r.attribute)}${field('무기','weapon',r.weapon)}${field('캐릭터 이미지 URL','image',r.image,{full:true})}
-    <div class="field full"><div class="image-preview">${preview(r.image)}</div></div>${uploadWidget('image')}${field('성격과 특징','description',r.description,{type:'textarea',full:true,rows:5})}${field('과거·서사·외형','story',r.story,{type:'textarea',full:true,rows:5})}${field('스킬 (한 줄에 하나씩)','skills',(r.skills||[]).join('\n'),{type:'textarea',full:true,rows:5})}${field('관계','relations',r.relations,{type:'textarea',full:true,rows:4})}</div>${footer}`;
+    <div class="field full"><div class="image-preview">${preview(r.image)}</div></div>${characterUploadWidget()}${field('성격과 특징','description',r.description,{type:'textarea',full:true,rows:5})}${field('과거·서사·외형','story',r.story,{type:'textarea',full:true,rows:5})}${field('스킬 (한 줄에 하나씩)','skills',(r.skills||[]).join('\n'),{type:'textarea',full:true,rows:5})}${field('관계','relations',r.relations,{type:'textarea',full:true,rows:4})}</div>${footer}`;
     if(type==='artworks')return `${heading('작품 상세 정보','커미션 작가의 공개 허가와 크레딧 조건을 확인해 주세요.')}<div class="form-grid">${field('작품 제목','title',r.title,{full:true})}${field('작품 종류','kind',r.kind,{type:'select',options:[{value:'commission',label:'커미션'},{value:'original',label:'직접 그린 그림'},{value:'fanart',label:'팬아트'}]})}${field('캐릭터','characterId',r.characterId,{type:'select',options:[{value:'',label:'캐릭터 선택 안 함'},...data.characters.map(c=>({value:c.id,label:c.name}))]})}${field('작가명','artist',r.artist)}${field('작가 링크 (https://)','artistUrl',r.artistUrl,{full:true})}${field('이미지 URL','image',r.image,{full:true})}<div class="field full"><div class="image-preview">${preview(r.image)}</div></div>${uploadWidget('image')}${field('작품 설명','description',r.description,{type:'textarea',full:true})}</div>${footer}`;
     return `${heading('뉴스·보도자료','공식 소식과 이미지 기록을 작성합니다.')}<div class="form-grid">${field('제목','title',r.title,{full:true})}${field('분류','category',r.category)}${field('게시일','date',r.date,{type:'date'})}${field('대표 이미지 URL','image',r.image,{full:true})}<div class="field full"><div class="image-preview">${preview(r.image)}</div></div>${uploadWidget('image')}${field('내용 요약','summary',r.summary,{type:'textarea',full:true,rows:6})}</div>${footer}`;
   }
@@ -167,6 +262,12 @@
       data.settings[prefix+'Family']='';data.settings[prefix+'Url']='';dirty=true;renderStudio();status('기본 폰트로 변경했습니다. 변경사항 저장을 눌러 적용하세요.');
     }));
     if(activeTab==='typography'){loadStudioFont('body');loadStudioFont('heading');}
+    $$('.character-crop-input').forEach(input=>input.addEventListener('change',async()=>{
+      const file=input.files?.[0];if(!file)return;
+      const recordId=selected.characters;
+      input.value='';
+      try{await openCharacterCrop(file,recordId);}catch(e){status(e.message||'이미지를 열 수 없습니다.',true);}
+    }));
     $$('.image-upload').forEach(input=>input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
       if(file.size>8*1024*1024){alert('8MB 이하의 이미지를 선택해 주세요.');return;}
