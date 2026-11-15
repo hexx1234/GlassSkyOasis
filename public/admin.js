@@ -121,7 +121,7 @@
   function uploadWidget(fieldName){return `<div class="field full"><label>이미지 파일 업로드 (GitHub 저장)</label><input class="image-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload-field="${esc(fieldName)}"><div class="upload-note">JPG · PNG · WEBP · GIF / 파일당 8MB 이하. 업로드하면 GitHub에 이미지 파일이 바로 저장됩니다.</div></div>`;}
   // Character images only: pan-and-zoom crop before the existing GitHub upload API.
   function characterUploadWidget(){
-    return `<div class="field full"><label>캐릭터 이미지 업로드 · 원하는 부분 자르기</label><input class="character-crop-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="upload-note">이미지를 고르면 자르기 창이 열립니다. 드래그로 위치를 조절하고 확대·축소한 다음 '자르고 업로드'를 누르세요. 8MB 이하 · JPG/PNG/WEBP/GIF(애니메이션은 정지 이미지로 저장).</div></div>`;
+    return `<div class="field full"><label>캐릭터 이미지 업로드 · 원하는 부분 자르기</label><input class="character-crop-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="crop-upload-status" role="status" aria-live="polite">파일을 선택하면 자르기 편집창이 열립니다.</div><div class="upload-note">이미지를 고르면 자르기 창이 열립니다. 드래그로 위치를 조절하고 확대·축소한 다음 '자르고 업로드'를 누르세요. 8MB 이하 · JPG/PNG/WEBP/GIF(애니메이션은 정지 이미지로 저장).</div></div>`;
   }
   async function uploadImageFile(file, fieldName, target, onFinish){
     if(file.size>8*1024*1024)throw new Error('8MB 이하의 이미지를 선택해 주세요.');
@@ -142,8 +142,14 @@
     const objectUrl=URL.createObjectURL(file);
     let modal=null, source=null;
     try{
-      source=new Image();source.src=objectUrl;
-      await source.decode();
+      source=new Image();
+      // Use load/error events as well as decode so browsers without Image.decode() work.
+      await new Promise((resolve,reject)=>{
+        source.onload=()=>resolve();
+        source.onerror=()=>reject(new Error('선택한 이미지를 브라우저에서 열지 못했습니다. PNG 또는 JPG로 변환해 다시 선택해 주세요.'));
+        source.src=objectUrl;
+        if(source.complete && source.naturalWidth)resolve();
+      });
       if(!source.naturalWidth||!source.naturalHeight)throw new Error('이미지 크기를 읽을 수 없습니다.');
       const template=`<div class="crop-dialog" role="dialog" aria-modal="true" aria-label="캐릭터 이미지 자르기"><div class="crop-header"><div><h2>캐릭터 이미지 자르기</h2><p>이미지를 드래그해 원하는 부분을 가운데에 놓으세요.</p></div><button class="crop-close" type="button" aria-label="닫기">✕</button></div><div class="crop-layout"><div class="crop-canvas-box"><canvas class="crop-canvas" width="600" height="800" aria-label="이미지 자르기 미리보기"></canvas></div><div class="crop-controls"><label for="crop-aspect">자르기 비율</label><select id="crop-aspect"><option value="3:4">3:4 · 캐릭터 세로형</option><option value="1:1">1:1 · 정사각형</option><option value="free">원본 비율 유지</option></select><label for="crop-zoom">확대 / 축소 <output class="crop-zoom-number">100%</output></label><input id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1"><p class="crop-help">드래그: 위치 변경<br>슬라이더: 확대 / 축소<br>원본 파일은 그대로 보존되며, 잘라낸 이미지만 업로드됩니다.</p><div class="crop-actions"><button class="admin-button ghost crop-cancel" type="button">취소</button><button class="admin-button crop-confirm" type="button">자르고 업로드</button></div><p class="crop-feedback" role="status" aria-live="polite"></p></div></div></div>`;
       modal=document.createElement('div');modal.className='crop-backdrop';modal.innerHTML=template;document.body.appendChild(modal);
@@ -265,8 +271,16 @@
     $$('.character-crop-input').forEach(input=>input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
       const recordId=selected.characters;
+      const note=input.parentElement.querySelector('.crop-upload-status');
       input.value='';
-      try{await openCharacterCrop(file,recordId);}catch(e){status(e.message||'이미지를 열 수 없습니다.',true);}
+      if(note)note.textContent=`${file.name} 읽는 중…`;
+      try{await openCharacterCrop(file,recordId);}
+      catch(e){
+        const message=e?.message||'이미지를 열 수 없습니다.';
+        if(note)note.textContent=`오류: ${message}`;
+        status(message,true);
+        alert('캐릭터 이미지 편집을 시작하지 못했습니다.\n'+message);
+      }
     }));
     $$('.image-upload').forEach(input=>input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
