@@ -229,12 +229,32 @@
     },
     {
       "id": "item-mwhk4i86-7wpyj",
-      "title": "새 작품",
+      "title": "시엘 실루엣 일러스트",
+      "artist": "leummuel05",
+      "artistUrl": "",
+      "characterId": "ciel",
+      "kind": "commission",
+      "image": "uploads/mwhk4sth-09e3267360-20260521_160306.jpg",
+      "description": ""
+    },
+    {
+      "id": "item-mwhk5og6-0hbd0",
+      "title": "시엘 하이앵글 일러스트",
+      "artist": "GOLDFEASH",
+      "artistUrl": "characterhub",
+      "characterId": "ciel",
+      "kind": "fanart",
+      "image": "uploads/mwhk5t5b-50e1333c22-IMG-0880.jpg",
+      "description": ""
+    },
+    {
+      "id": "item-mwhk6szi-z19d6",
+      "title": "시엘 설정화",
       "artist": "",
       "artistUrl": "",
-      "characterId": "",
-      "kind": "commission",
-      "image": "",
+      "characterId": "ciel",
+      "kind": "original",
+      "image": "uploads/mwhk6vv7-c096100e63-IMG-9588.png",
       "description": ""
     }
   ],
