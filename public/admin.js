@@ -228,7 +228,7 @@
         }catch(e){feedback.textContent=e.message||'업로드에 실패했습니다.';button.disabled=false;locked=false;}
       };
       modal.querySelector('.crop-confirm').addEventListener('click',upload);
-      return new Promise(resolve=>{
+      await new Promise(resolve=>{
         const watcher=new MutationObserver(()=>{
           if(!modal||!modal.isConnected){watcher.disconnect();document.removeEventListener('keydown',onKey);resolve();}
         });
