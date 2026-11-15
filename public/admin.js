@@ -136,20 +136,35 @@
     dirty=true;
     if(onFinish)onFinish();
   }
-  async function openCharacterCrop(file, recordId){
+  async function openCharacterCrop(file, recordId, onReady){
     if(!/^image\/(png|jpeg|webp|gif)$/.test(file.type))throw new Error('JPG, PNG, WEBP, GIF 이미지만 사용할 수 있습니다.');
     if(file.size>8*1024*1024)throw new Error('8MB 이하 이미지만 사용할 수 있습니다.');
-    const objectUrl=URL.createObjectURL(file);
+    let objectUrl=URL.createObjectURL(file);
     let modal=null, source=null;
     try{
-      source=new Image();
-      // Use load/error events as well as decode so browsers without Image.decode() work.
-      await new Promise((resolve,reject)=>{
-        source.onload=()=>resolve();
-        source.onerror=()=>reject(new Error('선택한 이미지를 브라우저에서 열지 못했습니다. PNG 또는 JPG로 변환해 다시 선택해 주세요.'));
-        source.src=objectUrl;
-        if(source.complete && source.naturalWidth)resolve();
+      // Some browsers never fire image load/error on blob URLs. Use a bounded
+      // attempt and retry with FileReader; always settle with a useful message.
+      const loadSource=(url,timeoutMs=12000)=>new Promise((resolve,reject)=>{
+        const image=new Image();let settled=false;
+        const timer=setTimeout(()=>finish(new Error('이미지 읽기가 오래 걸리고 있습니다. PNG 또는 JPG로 다시 저장하거나 이미지 크기를 줄여주세요.')),timeoutMs);
+        function finish(error){if(settled)return;settled=true;clearTimeout(timer);image.onload=null;image.onerror=null;error?reject(error):resolve(image);}
+        image.onload=()=>finish();
+        image.onerror=()=>finish(new Error('이미지 파일을 브라우저에서 열 수 없습니다. PNG 또는 JPG로 다시 저장해 주세요.'));
+        image.src=url;
+        if(image.complete&&image.naturalWidth)finish();
       });
+      try{source=await loadSource(objectUrl);}
+      catch(firstError){
+        const dataUrl=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          const timer=setTimeout(()=>{reader.abort();reject(new Error('이미지 파일 읽기가 중단되었습니다. 파일을 PNG 또는 JPG로 변환해 주세요.'));},12000);
+          reader.onload=()=>{clearTimeout(timer);resolve(reader.result);};
+          reader.onerror=()=>{clearTimeout(timer);reject(new Error('이미지 파일을 읽을 수 없습니다.'));};
+          reader.onabort=()=>{clearTimeout(timer);reject(new Error('이미지 읽기가 제한 시간을 초과했습니다.'));};
+          reader.readAsDataURL(file);
+        });
+        source=await loadSource(dataUrl);
+      }
       if(!source.naturalWidth||!source.naturalHeight)throw new Error('이미지 크기를 읽을 수 없습니다.');
       const template=`<div class="crop-dialog" role="dialog" aria-modal="true" aria-label="캐릭터 이미지 자르기"><div class="crop-header"><div><h2>캐릭터 이미지 자르기</h2><p>이미지를 드래그해 원하는 부분을 가운데에 놓으세요.</p></div><button class="crop-close" type="button" aria-label="닫기">✕</button></div><div class="crop-layout"><div class="crop-canvas-box"><canvas class="crop-canvas" width="600" height="800" aria-label="이미지 자르기 미리보기"></canvas></div><div class="crop-controls"><label for="crop-aspect">자르기 비율</label><select id="crop-aspect"><option value="3:4">3:4 · 캐릭터 세로형</option><option value="1:1">1:1 · 정사각형</option><option value="free">원본 비율 유지</option></select><label for="crop-zoom">확대 / 축소 <output class="crop-zoom-number">100%</output></label><input id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1"><p class="crop-help">드래그: 위치 변경<br>슬라이더: 확대 / 축소<br>원본 파일은 그대로 보존되며, 잘라낸 이미지만 업로드됩니다.</p><div class="crop-actions"><button class="admin-button ghost crop-cancel" type="button">취소</button><button class="admin-button crop-confirm" type="button">자르고 업로드</button></div><p class="crop-feedback" role="status" aria-live="polite"></p></div></div></div>`;
       modal=document.createElement('div');modal.className='crop-backdrop';modal.innerHTML=template;document.body.appendChild(modal);
@@ -180,6 +195,7 @@
         offsetX=0;offsetY=0;zoom=1;zoomInput.value='1';zoomNumber.textContent='100%';render();
       }
       changeRatio();
+      if(onReady)onReady();
       ratioSelect.addEventListener('change',changeRatio);
       zoomInput.addEventListener('input',()=>{zoom=Number(zoomInput.value);zoomNumber.textContent=`${Math.round(zoom*100)}%`;render();});
       canvas.addEventListener('pointerdown',e=>{if(locked)return;drag={x:e.clientX,y:e.clientY,offsetX,offsetY};canvas.setPointerCapture(e.pointerId);});
@@ -274,7 +290,7 @@
       const note=input.parentElement.querySelector('.crop-upload-status');
       input.value='';
       if(note)note.textContent=`${file.name} 읽는 중…`;
-      try{await openCharacterCrop(file,recordId);}
+      try{await openCharacterCrop(file,recordId,()=>{if(note)note.textContent='이미지 편집창이 열렸습니다. 원하는 부분을 자른 후 업로드하세요.';});}
       catch(e){
         const message=e?.message||'이미지를 열 수 없습니다.';
         if(note)note.textContent=`오류: ${message}`;
