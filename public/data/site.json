@@ -21,7 +21,10 @@
     "fontHeadingUrl": "https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2304-01@1.0/neurimboGothicRegular.woff2",
     "fontHeadingFamily": "느림보고딕",
     "fontBodyUrl": "https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/에이투지체-4Regular.woff2",
-    "fontBodyFamily": "에이투지체"
+    "fontBodyFamily": "에이투지체",
+    "businessEnergyImage": "uploads/mwhj65jw-14b99b78b4-core.png",
+    "businessMediaImage": "uploads/mwhj6ewl-ba5fc34608-------_--------.png",
+    "businessCitizenImage": "uploads/mwhj6w0j-ad4d8e6aad-city.png"
   },
   "species": [
     {
