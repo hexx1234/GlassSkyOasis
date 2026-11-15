@@ -4,3 +4,6 @@
 
 .logo-preview{min-height:95px;display:flex;align-items:center;justify-content:flex-start;background:#f2f7f9;padding:18px;border:1px dashed #b5cbd4;color:#6a8290;font-size:12px}
 .logo-preview img{display:block;max-width:280px;max-height:80px;object-fit:contain}
+
+.font-live-preview{border:1px solid #d1e1e7;background:linear-gradient(130deg,#eef8fa,#f9fcfd);padding:24px;line-height:1.65;word-break:keep-all;font-size:clamp(18px,2vw,28px);color:#203846;min-height:100px}
+.font-code-paste{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important;font-size:12px!important;white-space:pre-wrap}

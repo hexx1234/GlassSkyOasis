@@ -7,7 +7,7 @@
   const ID=()=>`item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
   const mediaUrl = value => /^uploads\/[A-Za-z0-9._-]+$/.test(String(value||''))?'/api/media/'+encodeURIComponent(value.split('/')[1]):(/^https?:\/\//.test(String(value||''))?value:'');
   let data=null, sha=null, activeTab='site', selected={characters:null,artworks:null,news:null}, busy=false, dirty=false;
-  const titles={site:'메인 홈페이지',world:'세계관 설정',characters:'캐릭터 관리',artworks:'일러스트·커미션',news:'뉴스·보도자료'};
+  const titles={site:'메인 홈페이지',world:'세계관 설정',characters:'캐릭터 관리',artworks:'일러스트·커미션',news:'뉴스·보도자료',typography:'폰트 설정'};
   async function api(path,method='GET',body){
     const opts={method,headers:body?{'content-type':'application/json'}:{},credentials:'same-origin'};
     if(body)opts.body=JSON.stringify(body);
@@ -39,6 +39,58 @@
   ])}${uploadWidget('heroImage')}</section><section class="form-panel">${heading('국가·기업 소개','ABOUT GSO는 독립 페이지가 아니라 홈 안의 소개 섹션입니다.')}${settingsForm([
     ['섹션 라벨','introEyebrow'],['섹션 제목','introTitle'],['소개 본문','introText',{type:'textarea',full:true}],['소개 이미지 URL (선택)','introImage',{full:true}]
   ])}${settingsImagePreview('introImage')}${uploadWidget('introImage')}</section><section class="form-panel">${heading('버블존 소개','홈의 버블존 배너에 나타나는 문구와 이미지를 편집합니다.')}${settingsForm([['소개 문구','zoneText',{type:'textarea',full:true}],['방송·경기 대표 이미지 URL','zoneImage',{full:true}]])}${uploadWidget('zoneImage')}</section>`;}
+
+  const fallbackFont='Inter, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif';
+  const safeFontName=name=>String(name||'').trim().replace(/[^\p{L}\p{N} _.-]/gu,'').slice(0,90);
+  const fontFileUrl=value=>{try{const u=new URL(String(value||'').trim());return u.protocol==='https:' && /\.(woff2?|ttf|otf)(?:$|[?#])/i.test(u.pathname+u.search)?u.href:'';}catch{return '';}};
+  const fontFamilyCss=name=>safeFontName(name)?JSON.stringify(safeFontName(name))+', '+fallbackFont:fallbackFont;
+  async function loadStudioFont(which){
+    const isHeading=which==='heading';
+    const family=safeFontName(data.settings[isHeading?'fontHeadingFamily':'fontBodyFamily']);
+    const src=fontFileUrl(data.settings[isHeading?'fontHeadingUrl':'fontBodyUrl']);
+    const sample=$(`[data-font-sample="${which}"]`);
+    if(!sample)return;
+    const note=$(`[data-font-message="${which}"]`);
+    sample.style.fontFamily=fallbackFont;
+    if(!family||!src){note.textContent='폰트 이름과 HTTPS 웹폰트 파일 URL을 모두 입력하면 미리보기가 나옵니다.';return;}
+    try{
+      const font=new FontFace(family,`url(${JSON.stringify(src)})`,{style:'normal',weight:'100 900'});
+      await font.load();document.fonts.add(font);
+      if(!sample.isConnected)return;
+      sample.style.fontFamily=fontFamilyCss(family);note.textContent='미리보기 적용됨. 저장 버튼을 누르면 공개 사이트에도 반영됩니다.';
+    }catch(e){note.textContent='폰트를 불러오지 못했습니다. URL이 .woff2/.woff 파일을 가리키는지, 외부 접근이 허용되는지 확인하세요.';}
+  }
+  function parseNoonnuSnippet(which,source){
+    const familyMatch=source.match(/font-family\s*:\s*(['"])(.*?)\1/i)||source.match(/font-family\s*:\s*([^;\r\n]+)/i);
+    const urlMatch=source.match(/url\s*\(\s*(['"]?)(https:\/\/[^)'"\s]+\.(?:woff2?|ttf|otf)(?:\?[^)'"\s]*)?)\1\s*\)/i);
+    if(!familyMatch||!urlMatch)return false;
+    const family=safeFontName(familyMatch[2]||familyMatch[1]);
+    const url=fontFileUrl(urlMatch[2]);
+    if(!family||!url)return false;
+    const prefix=which==='heading'?'fontHeading':'fontBody';
+    data.settings[prefix+'Family']=family;data.settings[prefix+'Url']=url;
+    const familyInput=$(`[data-field="${prefix}Family"]`),urlInput=$(`[data-field="${prefix}Url"]`);
+    if(familyInput)familyInput.value=family;if(urlInput)urlInput.value=url;
+    dirty=true;status('폰트 코드에서 이름과 파일 주소를 가져왔습니다. 변경사항 저장을 눌러주세요.');
+    loadStudioFont(which);return true;
+  }
+  function fontCard(which){
+    const isHeading=which==='heading',prefix=isHeading?'fontHeading':'fontBody';
+    const name=isHeading?'제목 폰트':'본문 폰트';
+    return `<section class="form-panel">${heading(name,isHeading?'큰 제목, 섹션 제목, 헤더의 브랜드 문구에 적용됩니다.':'본문 설명, 메뉴, 버튼, 캐릭터 소개 등에 적용됩니다.')}
+      <div class="form-grid">
+        ${field('눈누 CSS의 font-family 이름',prefix+'Family',data.settings[prefix+'Family']||'',{placeholder:'예: Paperlogy',full:true})}
+        ${field('폰트 파일 주소 (https://...woff2)',prefix+'Url',data.settings[prefix+'Url']||'',{placeholder:'https://.../font.woff2',full:true,description:'눈누 @font-face 안의 src: url(...)에서 웹폰트 파일 주소를 사용하세요. HTTPS 주소만 지원합니다.'})}
+        <div class="field full"><label>눈누의 @font-face 코드 붙여넣기 (선택)</label>
+          <textarea class="font-code-paste" data-font-paste="${which}" rows="5" placeholder="눈누에서 제공하는 @font-face { ... } 코드를 그대로 붙여넣으세요."></textarea>
+          <button class="admin-button ghost" type="button" data-font-import="${which}" style="margin-top:10px">코드에서 폰트 정보 가져오기</button>
+          <div class="field-desc">코드를 저장하지 않고, 폰트 이름과 파일 주소만 추출합니다.</div></div>
+        <div class="field full"><label>실시간 미리보기</label><div class="font-live-preview" data-font-sample="${which}">${isHeading?'지속 가능한 낙원을 향한 우리의 약속':'버블 에너지와 함께 새로운 내일을 만들어갑니다. GLASS SKY OASIS 123'}</div><div class="field-desc" data-font-message="${which}"></div></div>
+        <div class="field full"><button type="button" class="admin-button ghost" data-font-reset="${which}">이 폰트만 기본값으로 되돌리기</button></div>
+      </div></section>`;
+  }
+  function renderTypography(){return `<div class="notice">눈누에서 원하는 폰트의 웹폰트 CSS(@font-face)를 복사하면, 아래 붙여넣기 칸에서 자동으로 이름과 URL을 추출할 수 있습니다. 변경사항 저장 후 공개 사이트 전체에 적용됩니다. 눈누의 웹폰트 이용 허용 여부를 먼저 확인하세요.</div>${fontCard('body')}${fontCard('heading')}`;}
+
   function renderWorld(){return `<section class="form-panel">${heading('OUR WORLD','세계관 개요, 시스템 탄생 배경, 사회 구조를 편집합니다.')}${settingsForm([
     ['글래스 스카이 오아시스 개요','worldOverview',{type:'textarea',full:true,rows:5}],['연혁 및 버블 랭킹 시스템 탄생 배경','worldBackground',{type:'textarea',full:true,rows:6}],['클래스와 시민 권리','worldSociety',{type:'textarea',full:true,rows:5}],['버블 에너지 사업 소개','energyText',{type:'textarea',full:true}],['시민 서비스 소개','citizenText',{type:'textarea',full:true}]
   ])}</section><section class="form-panel">${heading('종족 데이터베이스','종족 이름과 특징을 수정할 수 있습니다.')}${data.species.map((s,i)=>`<div class="species-edit" data-index="${i}" style="border-top:1px solid #d9e4e9;padding-top:25px;margin-top:25px"><strong>${esc(s.name)}</strong><div class="form-grid" style="margin-top:18px">${field('한글 이름','name',s.name)}${field('영문 이름','en',s.en)}${field('종족 설명','description',s.description,{type:'textarea',full:true,rows:4})}</div></div>`).join('')}</section>`;}
@@ -77,17 +129,18 @@
   }
   function preview(raw){const url=mediaUrl(raw);return url?`<img src="${esc(url)}" alt="등록된 이미지 미리보기" loading="lazy">`:'이미지 등록 전';}
   function renderStudio(){
-    $('#admin-app').innerHTML=`<div class="studio"><aside class="studio-nav">${Object.entries(titles).map(([id,title])=>`<button data-tab="${id}" class="${id===activeTab?'active':''}">${esc(title)}</button>`).join('')}<div class="side-note">저장하면 GitHub의 data/site.json이 변경됩니다.<br>토큰은 서버 비밀 값으로만 관리됩니다.</div></aside><div class="studio-main"><div class="studio-toolbar"><div><div class="eyebrow">GLASS SKY OASIS / CONTENT STUDIO</div><h1>${titles[activeTab]}</h1><div class="studio-status" id="studio-status">${dirty?'저장되지 않은 변경사항이 있습니다.':'저장된 데이터를 편집할 수 있습니다.'}</div></div><div class="save-fixed"><button class="admin-button" id="save-button" ${busy?'disabled':''}>변경사항 저장 ↗</button></div></div><div class="notice">저장 후 공개 사이트에 변경사항이 반영됩니다. 이미지는 업로드하는 즉시 별도 GitHub 커밋으로 저장됩니다.</div>${activeTab==='site'?renderSite():activeTab==='world'?renderWorld():records(activeTab)}<div class="studio-footer">계정 비밀번호나 GitHub 토큰을 HTML·JS 파일 또는 공개 저장소에 적지 마세요.</div></div></div>`;
+    $('#admin-app').innerHTML=`<div class="studio"><aside class="studio-nav">${Object.entries(titles).map(([id,title])=>`<button data-tab="${id}" class="${id===activeTab?'active':''}">${esc(title)}</button>`).join('')}<div class="side-note">저장하면 GitHub의 data/site.json이 변경됩니다.<br>토큰은 서버 비밀 값으로만 관리됩니다.</div></aside><div class="studio-main"><div class="studio-toolbar"><div><div class="eyebrow">GLASS SKY OASIS / CONTENT STUDIO</div><h1>${titles[activeTab]}</h1><div class="studio-status" id="studio-status">${dirty?'저장되지 않은 변경사항이 있습니다.':'저장된 데이터를 편집할 수 있습니다.'}</div></div><div class="save-fixed"><button class="admin-button" id="save-button" ${busy?'disabled':''}>변경사항 저장 ↗</button></div></div><div class="notice">저장 후 공개 사이트에 변경사항이 반영됩니다. 이미지는 업로드하는 즉시 별도 GitHub 커밋으로 저장됩니다.</div>${activeTab==='site'?renderSite():activeTab==='world'?renderWorld():activeTab==='typography'?renderTypography():records(activeTab)}<div class="studio-footer">계정 비밀번호나 GitHub 토큰을 HTML·JS 파일 또는 공개 저장소에 적지 마세요.</div></div></div>`;
     for(const input of $$('#admin-app [data-field]')){
       const block=input.closest('.species-edit');
       input.addEventListener('input',()=>{
         let target;
         if(block)target=data.species[Number(block.dataset.index)];
-        else if(activeTab==='site'||activeTab==='world')target=data.settings;
+        else if(activeTab==='site'||activeTab==='world'||activeTab==='typography')target=data.settings;
         else target=data[activeTab].find(x=>x.id===selected[activeTab]);
         if(!target)return;
         target[input.dataset.field]=input.dataset.field==='skills'?input.value.split('\n').map(s=>s.trim()).filter(Boolean):input.value;
         if(input.dataset.field==='introImage')updateImagePreview('introImage',input.value);
+        if(activeTab==='typography' && /^font(Heading|Body)/.test(input.dataset.field))loadStudioFont(input.dataset.field.startsWith('fontHeading')?'heading':'body');
         dirty=true;status('저장되지 않은 변경사항이 있습니다.');
       });
     }
@@ -105,6 +158,15 @@
         data[type]=data[type].filter(x=>x.id!==selected[type]);selected[type]=data[type][0]?.id||null;dirty=true;renderStudio();
       }
     }));
+    $$('[data-font-import]').forEach(btn=>btn.addEventListener('click',()=>{
+      const which=btn.dataset.fontImport;
+      if(!parseNoonnuSnippet(which,$(`[data-font-paste="${which}"]`)?.value||''))status('코드에서 폰트 이름 또는 HTTPS 폰트 파일 주소를 찾지 못했습니다. 눈누의 @font-face 전체 코드를 붙여넣으세요.',true);
+    }));
+    $$('[data-font-reset]').forEach(btn=>btn.addEventListener('click',()=>{
+      const prefix=btn.dataset.fontReset==='heading'?'fontHeading':'fontBody';
+      data.settings[prefix+'Family']='';data.settings[prefix+'Url']='';dirty=true;renderStudio();status('기본 폰트로 변경했습니다. 변경사항 저장을 눌러 적용하세요.');
+    }));
+    if(activeTab==='typography'){loadStudioFont('body');loadStudioFont('heading');}
     $$('.image-upload').forEach(input=>input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
       if(file.size>8*1024*1024){alert('8MB 이하의 이미지를 선택해 주세요.');return;}

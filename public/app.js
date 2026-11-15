@@ -22,6 +22,25 @@
   const banner = (tag,title,copy) => `<section class="page-banner"><div class="shell"><span class="eyebrow">${esc(tag)}</span><h1 class="route-heading">${esc(title)}</h1><p class="route-lead">${esc(copy)}</p></div></section>`;
   const empty = (value) => `<div class="empty-state">${esc(value)}</div>`;
 
+
+  const defaultFont='Inter, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif';
+  const safeFontName=name=>String(name||'').trim().replace(/[^\p{L}\p{N} _.-]/gu,'').slice(0,90);
+  const validFontUrl=value=>{try{const u=new URL(String(value||'').trim());return u.protocol==='https:'&&/\.(woff2?|ttf|otf)$/i.test(u.pathname)?u.href:'';}catch{return '';}};
+  async function applySiteFonts(){
+    const settings=site?.settings||{};
+    for(const [key,variable] of [['Body','--gso-body-font'],['Heading','--gso-heading-font']]){
+      const family=safeFontName(settings[`font${key}Family`]);
+      const url=validFontUrl(settings[`font${key}Url`]);
+      document.documentElement.style.setProperty(variable,defaultFont);
+      if(!family||!url)continue;
+      try{
+        const font=new FontFace(family,`url(${JSON.stringify(url)})`,{weight:'100 900',style:'normal'});
+        await font.load();document.fonts.add(font);
+        document.documentElement.style.setProperty(variable,JSON.stringify(family)+', '+defaultFont);
+      }catch(err){console.warn(`GSO ${key} font unavailable`,err);}
+    }
+  }
+
   function updateHeaderLogo(){
     const settings=site?.settings||{};
     const image=$('#header-custom-logo');
@@ -147,7 +166,7 @@
     });
   }
   async function init(){
-    if (window.GSO_PREVIEW_DATA) { site=window.GSO_PREVIEW_DATA; updateHeaderLogo(); render(); return; }
+    if (window.GSO_PREVIEW_DATA) { site=window.GSO_PREVIEW_DATA; updateHeaderLogo(); render(); applySiteFonts(); return; }
     try{
       let r=await fetch('/api/data',{cache:'no-store'});
       if(!r.ok)r=await fetch('/data/site.json',{cache:'no-store'});
@@ -155,6 +174,7 @@
       const result=await r.json();site=result.data||result;
       updateHeaderLogo();
       render();
+      applySiteFonts();
     }catch(err){$('#app').innerHTML='<div class="shell initial-loading" role="alert">사이트 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';console.error(err);}
   }
   $('#menu-toggle').addEventListener('click',()=>{const nav=$('#mobile-nav');nav.hidden=!nav.hidden;$('#menu-toggle').setAttribute('aria-expanded',String(!nav.hidden));});

@@ -46,3 +46,8 @@ html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:#fff;font-
 .about-strip-with-image .text-link{border-color:rgba(255,255,255,.65)}
 @media(max-width:820px){.about-strip-with-image{min-height:400px}.about-strip-with-image .about-strip-inner{width:calc(100% - 38px);padding-top:85px;padding-bottom:110px}.about-strip-with-image .about-image-shade{background:linear-gradient(90deg,rgba(5,28,46,.85),rgba(5,35,55,.56))}}
 @media(max-width:560px){.about-strip-with-image .about-strip-inner{width:calc(100% - 32px)}.about-strip-with-image h2{font-size:clamp(30px,8vw,40px)}.about-strip-with-image p{font-size:14px}}
+
+/* Typography choices saved from CONTENT STUDIO; these variables are set by app.js. */
+:root{--gso-body-font:var(--font);--gso-heading-font:var(--gso-body-font)}
+body{font-family:var(--gso-body-font,var(--font))}
+h1,h2,h3,h4,h5,h6,.brand-type,.footer-brand{font-family:var(--gso-heading-font,var(--gso-body-font,var(--font)))}
