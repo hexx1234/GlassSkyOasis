@@ -38,7 +38,7 @@
     ['상단 라벨','heroEyebrow'],['메인 제목','heroTitle'],['소개 문구','heroDescription',{type:'textarea',full:true}],['메인 이미지 주소','heroImage',{full:true,description:'이미지 파일 업로드는 아래에서 할 수 있습니다. 외부 이미지 URL도 사용 가능합니다.'}]
   ])}${uploadWidget('heroImage')}</section><section class="form-panel">${heading('국가·기업 소개','ABOUT GSO는 독립 페이지가 아니라 홈 안의 소개 섹션입니다.')}${settingsForm([
     ['섹션 라벨','introEyebrow'],['섹션 제목','introTitle'],['소개 본문','introText',{type:'textarea',full:true}],['소개 이미지 URL (선택)','introImage',{full:true}]
-  ])}</section><section class="form-panel">${heading('버블존 소개','홈의 버블존 배너에 나타나는 문구와 이미지를 편집합니다.')}${settingsForm([['소개 문구','zoneText',{type:'textarea',full:true}],['방송·경기 대표 이미지 URL','zoneImage',{full:true}]])}${uploadWidget('zoneImage')}</section>`;}
+  ])}${settingsImagePreview('introImage')}${uploadWidget('introImage')}</section><section class="form-panel">${heading('버블존 소개','홈의 버블존 배너에 나타나는 문구와 이미지를 편집합니다.')}${settingsForm([['소개 문구','zoneText',{type:'textarea',full:true}],['방송·경기 대표 이미지 URL','zoneImage',{full:true}]])}${uploadWidget('zoneImage')}</section>`;}
   function renderWorld(){return `<section class="form-panel">${heading('OUR WORLD','세계관 개요, 시스템 탄생 배경, 사회 구조를 편집합니다.')}${settingsForm([
     ['글래스 스카이 오아시스 개요','worldOverview',{type:'textarea',full:true,rows:5}],['연혁 및 버블 랭킹 시스템 탄생 배경','worldBackground',{type:'textarea',full:true,rows:6}],['클래스와 시민 권리','worldSociety',{type:'textarea',full:true,rows:5}],['버블 에너지 사업 소개','energyText',{type:'textarea',full:true}],['시민 서비스 소개','citizenText',{type:'textarea',full:true}]
   ])}</section><section class="form-panel">${heading('종족 데이터베이스','종족 이름과 특징을 수정할 수 있습니다.')}${data.species.map((s,i)=>`<div class="species-edit" data-index="${i}" style="border-top:1px solid #d9e4e9;padding-top:25px;margin-top:25px"><strong>${esc(s.name)}</strong><div class="form-grid" style="margin-top:18px">${field('한글 이름','name',s.name)}${field('영문 이름','en',s.en)}${field('종족 설명','description',s.description,{type:'textarea',full:true,rows:4})}</div></div>`).join('')}</section>`;}
@@ -52,6 +52,19 @@
     if(!data[type].length)return `<div class="notice">등록된 항목이 없습니다. 아래 버튼으로 첫 항목을 추가하세요.</div><button class="admin-button" data-action="add" data-type="${type}">＋ 새 항목 추가</button>`;
     const cur=data[type].find(x=>x.id===selected[type])||data[type][0];selected[type]=cur.id;
     return `<div class="records-layout"><div class="record-list"><button class="admin-button" data-action="add" data-type="${type}">＋ 새 항목 추가</button>${data[type].map(x=>`<button class="${x.id===cur.id?'active':''}" data-record="${esc(x.id)}" data-type="${type}"><span>${esc(recordLabel(type,x))}</span> <span>›</span></button>`).join('')}</div><div class="form-panel">${recordForm(type,cur)}</div></div>`;
+  }
+  function settingsImagePreview(fieldName){
+    return `<div class="field full"><label>이미지 미리보기</label><div class="image-preview" data-preview-field="${esc(fieldName)}">${preview(data.settings[fieldName])}</div><div class="field-desc">주소를 입력하면 미리보기가 자동 갱신됩니다. 변경사항 저장을 눌러 공개 사이트에 적용하세요.</div></div>`;
+  }
+  function updateImagePreview(fieldName, value){
+    const box=$(`[data-preview-field="${fieldName}"]`);
+    if(!box)return;
+    box.replaceChildren();
+    const url=mediaUrl(value);
+    if(!url){box.textContent='이미지 등록 전';return;}
+    const img=document.createElement('img');img.alt='이미지 미리보기';img.loading='lazy';img.src=url;
+    img.onerror=()=>{box.textContent='이미지를 열 수 없습니다. 주소와 배포 상태를 확인하세요.';};
+    box.append(img);
   }
   function uploadWidget(fieldName){return `<div class="field full"><label>이미지 파일 업로드 (GitHub 저장)</label><input class="image-upload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload-field="${esc(fieldName)}"><div class="upload-note">JPG · PNG · WEBP · GIF / 파일당 8MB 이하. 업로드하면 GitHub에 이미지 파일이 바로 저장됩니다.</div></div>`;}
   function recordForm(type,r){
@@ -74,6 +87,7 @@
         else target=data[activeTab].find(x=>x.id===selected[activeTab]);
         if(!target)return;
         target[input.dataset.field]=input.dataset.field==='skills'?input.value.split('\n').map(s=>s.trim()).filter(Boolean):input.value;
+        if(input.dataset.field==='introImage')updateImagePreview('introImage',input.value);
         dirty=true;status('저장되지 않은 변경사항이 있습니다.');
       });
     }
