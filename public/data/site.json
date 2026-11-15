@@ -139,12 +139,22 @@
     },
     {
       "id": "item-mwhjtcft-2zs9p",
-      "title": "새 작품",
+      "title": "엘가린 덩어리",
       "artist": "모",
       "artistUrl": "https://crepe.cm/ko/@po_m00__",
       "characterId": "",
       "kind": "commission",
       "image": "uploads/mwhjtit0-5e351e17dc-IMG-0874.png",
+      "description": ""
+    },
+    {
+      "id": "item-mwhjurce-4l3q1",
+      "title": "엘가린 수분화",
+      "artist": "",
+      "artistUrl": "",
+      "characterId": "",
+      "kind": "original",
+      "image": "uploads/mwhjvjfr-dfa3fc8a13-IMG-0439.png",
       "description": ""
     }
   ],
