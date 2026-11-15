@@ -7,7 +7,7 @@
   const ID=()=>`item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
   const mediaUrl = value => /^uploads\/[A-Za-z0-9._-]+$/.test(String(value||''))?'/api/media/'+encodeURIComponent(value.split('/')[1]):(/^https?:\/\//.test(String(value||''))?value:'');
   let data=null, sha=null, activeTab='site', selected={characters:null,artworks:null,news:null}, busy=false, dirty=false;
-  const titles={site:'메인 홈페이지',world:'세계관 설정',characters:'캐릭터 관리',artworks:'일러스트·커미션',news:'뉴스·보도자료',typography:'폰트 설정'};
+  const titles={site:'메인 홈페이지',world:'세계관 설정',characters:'캐릭터 관리',artworks:'일러스트·커미션',news:'뉴스·보도자료',business:'사업 이미지',banners:'페이지 상단 배경',typography:'폰트 설정'};
   async function api(path,method='GET',body){
     const opts={method,headers:body?{'content-type':'application/json'}:{},credentials:'same-origin'};
     if(body)opts.body=JSON.stringify(body);
@@ -91,6 +91,13 @@
   }
   function renderTypography(){return `<div class="notice">눈누에서 원하는 폰트의 웹폰트 CSS(@font-face)를 복사하면, 아래 붙여넣기 칸에서 자동으로 이름과 URL을 추출할 수 있습니다. 변경사항 저장 후 공개 사이트 전체에 적용됩니다. 눈누의 웹폰트 이용 허용 여부를 먼저 확인하세요.</div>${fontCard('body')}${fontCard('heading')}`;}
 
+  const businessImageFields=[['버블 에너지 · Bubble Energy','businessEnergyImage'],['시민 서비스 · Citizen Service','businessCitizenImage'],['미디어·방송 · Media & Broadcast','businessMediaImage']];
+  const bannerImageFields=[['OUR WORLD','bannerWorldImage'],['BUSINESS','bannerBusinessImage'],['BUBBLE ZONE','bannerZoneImage'],['PARTICIPANTS','bannerParticipantsImage'],['ARCHIVE','bannerArchiveImage']];
+  function renderImageSettings(title,description,fields){
+    return `<div class="notice">이미지 파일을 고르면 GitHub에 업로드됩니다. URL을 직접 입력해도 돼요. 업로드 또는 입력 후에는 반드시 오른쪽 위의 <strong>변경사항 저장</strong>을 눌러주세요.</div>${fields.map(([label,key])=>`<section class="form-panel">${heading(label,description)}<div class="form-grid">${field('이미지 URL 또는 저장 경로',key,data.settings[key]||'',{full:true,description:'https://.../uploads/파일.png 또는 uploads/파일.png'})}${settingsImagePreview(key)}${uploadWidget(key)}</div></section>`).join('')}`;
+  }
+  function renderBusinessImages(){return renderImageSettings('OUR BUSINESS','메인 화면과 BUSINESS 상세 페이지에서 사용하는 사업별 카드 이미지입니다.',businessImageFields);}
+  function renderPageBanners(){return renderImageSettings('페이지 상단 배경','페이지에 들어갔을 때 큰 영어 제목 뒤에 이미지가 깔립니다. 자동으로 어두운 그라데이션을 더해 제목을 읽기 쉽게 만듭니다.',bannerImageFields);}
   function renderWorld(){return `<section class="form-panel">${heading('OUR WORLD','세계관 개요, 시스템 탄생 배경, 사회 구조를 편집합니다.')}${settingsForm([
     ['글래스 스카이 오아시스 개요','worldOverview',{type:'textarea',full:true,rows:5}],['연혁 및 버블 랭킹 시스템 탄생 배경','worldBackground',{type:'textarea',full:true,rows:6}],['클래스와 시민 권리','worldSociety',{type:'textarea',full:true,rows:5}],['버블 에너지 사업 소개','energyText',{type:'textarea',full:true}],['시민 서비스 소개','citizenText',{type:'textarea',full:true}]
   ])}</section><section class="form-panel">${heading('종족 데이터베이스','종족 이름과 특징을 수정할 수 있습니다.')}${data.species.map((s,i)=>`<div class="species-edit" data-index="${i}" style="border-top:1px solid #d9e4e9;padding-top:25px;margin-top:25px"><strong>${esc(s.name)}</strong><div class="form-grid" style="margin-top:18px">${field('한글 이름','name',s.name)}${field('영문 이름','en',s.en)}${field('종족 설명','description',s.description,{type:'textarea',full:true,rows:4})}</div></div>`).join('')}</section>`;}
@@ -246,17 +253,17 @@
   }
   function preview(raw){const url=mediaUrl(raw);return url?`<img src="${esc(url)}" alt="등록된 이미지 미리보기" loading="lazy">`:'이미지 등록 전';}
   function renderStudio(){
-    $('#admin-app').innerHTML=`<div class="studio"><aside class="studio-nav">${Object.entries(titles).map(([id,title])=>`<button data-tab="${id}" class="${id===activeTab?'active':''}">${esc(title)}</button>`).join('')}<div class="side-note">저장하면 GitHub의 data/site.json이 변경됩니다.<br>토큰은 서버 비밀 값으로만 관리됩니다.</div></aside><div class="studio-main"><div class="studio-toolbar"><div><div class="eyebrow">GLASS SKY OASIS / CONTENT STUDIO</div><h1>${titles[activeTab]}</h1><div class="studio-status" id="studio-status">${dirty?'저장되지 않은 변경사항이 있습니다.':'저장된 데이터를 편집할 수 있습니다.'}</div></div><div class="save-fixed"><button class="admin-button" id="save-button" ${busy?'disabled':''}>변경사항 저장 ↗</button></div></div><div class="notice">저장 후 공개 사이트에 변경사항이 반영됩니다. 이미지는 업로드하는 즉시 별도 GitHub 커밋으로 저장됩니다.</div>${activeTab==='site'?renderSite():activeTab==='world'?renderWorld():activeTab==='typography'?renderTypography():records(activeTab)}<div class="studio-footer">계정 비밀번호나 GitHub 토큰을 HTML·JS 파일 또는 공개 저장소에 적지 마세요.</div></div></div>`;
+    $('#admin-app').innerHTML=`<div class="studio"><aside class="studio-nav">${Object.entries(titles).map(([id,title])=>`<button data-tab="${id}" class="${id===activeTab?'active':''}">${esc(title)}</button>`).join('')}<div class="side-note">저장하면 GitHub의 data/site.json이 변경됩니다.<br>토큰은 서버 비밀 값으로만 관리됩니다.</div></aside><div class="studio-main"><div class="studio-toolbar"><div><div class="eyebrow">GLASS SKY OASIS / CONTENT STUDIO</div><h1>${titles[activeTab]}</h1><div class="studio-status" id="studio-status">${dirty?'저장되지 않은 변경사항이 있습니다.':'저장된 데이터를 편집할 수 있습니다.'}</div></div><div class="save-fixed"><button class="admin-button" id="save-button" ${busy?'disabled':''}>변경사항 저장 ↗</button></div></div><div class="notice">저장 후 공개 사이트에 변경사항이 반영됩니다. 이미지는 업로드하는 즉시 별도 GitHub 커밋으로 저장됩니다.</div>${activeTab==='site'?renderSite():activeTab==='world'?renderWorld():activeTab==='typography'?renderTypography():activeTab==='business'?renderBusinessImages():activeTab==='banners'?renderPageBanners():records(activeTab)}<div class="studio-footer">계정 비밀번호나 GitHub 토큰을 HTML·JS 파일 또는 공개 저장소에 적지 마세요.</div></div></div>`;
     for(const input of $$('#admin-app [data-field]')){
       const block=input.closest('.species-edit');
       input.addEventListener('input',()=>{
         let target;
         if(block)target=data.species[Number(block.dataset.index)];
-        else if(activeTab==='site'||activeTab==='world'||activeTab==='typography')target=data.settings;
+        else if(['site','world','typography','business','banners'].includes(activeTab))target=data.settings;
         else target=data[activeTab].find(x=>x.id===selected[activeTab]);
         if(!target)return;
         target[input.dataset.field]=input.dataset.field==='skills'?input.value.split('\n').map(s=>s.trim()).filter(Boolean):input.value;
-        if(input.dataset.field==='introImage')updateImagePreview('introImage',input.value);
+        if(input.dataset.field==='introImage'||businessImageFields.some(f=>f[1]===input.dataset.field)||bannerImageFields.some(f=>f[1]===input.dataset.field))updateImagePreview(input.dataset.field,input.value);
         if(activeTab==='typography' && /^font(Heading|Body)/.test(input.dataset.field))loadStudioFont(input.dataset.field.startsWith('fontHeading')?'heading':'body');
         dirty=true;status('저장되지 않은 변경사항이 있습니다.');
       });
@@ -301,7 +308,7 @@
     $$('.image-upload').forEach(input=>input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
       if(file.size>8*1024*1024){alert('8MB 이하의 이미지를 선택해 주세요.');return;}
-      const target=activeTab==='site'||activeTab==='world'?data.settings:data[activeTab].find(x=>x.id===selected[activeTab]);
+      const target=['site','world','business','banners','typography'].includes(activeTab)?data.settings:data[activeTab].find(x=>x.id===selected[activeTab]);
       if(!target)return;
       input.disabled=true;status('이미지를 GitHub에 업로드하는 중입니다.');
       try{
