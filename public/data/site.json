@@ -116,6 +116,37 @@
       "relations": ""
     }
   ],
-  "artworks": [],
+  "artworks": [
+    {
+      "id": "item-mwhjp7bj-2aert",
+      "title": "엘가린 동물화",
+      "artist": "뮤라",
+      "artistUrl": "",
+      "characterId": "",
+      "kind": "commission",
+      "image": "uploads/mwhjqh5i-f057a0517a-1280_1782112424359.png",
+      "description": ""
+    },
+    {
+      "id": "item-mwhjsl7q-vyd8b",
+      "title": "엘가린 햄부기",
+      "artist": "낭만",
+      "artistUrl": "",
+      "characterId": "",
+      "kind": "commission",
+      "image": "uploads/mwhjsq5q-e5c7044318-IMG-1187.png",
+      "description": ""
+    },
+    {
+      "id": "item-mwhjtcft-2zs9p",
+      "title": "새 작품",
+      "artist": "",
+      "artistUrl": "",
+      "characterId": "",
+      "kind": "commission",
+      "image": "",
+      "description": ""
+    }
+  ],
   "news": []
 }
