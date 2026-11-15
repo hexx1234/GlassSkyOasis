@@ -24,7 +24,12 @@
     "fontBodyFamily": "에이투지체",
     "businessEnergyImage": "uploads/mwhj65jw-14b99b78b4-core.png",
     "businessMediaImage": "uploads/mwhj6ewl-ba5fc34608-------_--------.png",
-    "businessCitizenImage": "uploads/mwhj6w0j-ad4d8e6aad-city.png"
+    "businessCitizenImage": "uploads/mwhj6w0j-ad4d8e6aad-city.png",
+    "bannerWorldImage": "uploads/mwhja1dz-7aa1a6b426-skeuoss-desktop-wallpaper-15.jpg",
+    "bannerBusinessImage": "uploads/mwhja53k-8287ff9466-skeuoss-desktop-wallpaper-34--2-.jpg",
+    "bannerZoneImage": "uploads/mwhja85c-dd112cca8a-skeuoss-desktop-wallpaper-4.jpg",
+    "bannerParticipantsImage": "uploads/mwhjaek7-d009933ff5-skeuoss-desktop-wallpaper-5.jpg",
+    "bannerArchiveImage": "uploads/mwhjb4x8-9b872c5365-skeuoss-desktop-wallpaper-7.jpg"
   },
   "species": [
     {
