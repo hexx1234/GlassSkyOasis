@@ -151,6 +151,22 @@
         "풀 드롭 컬랩스 - 위와 같은 공격이나 적군에게는 강하게 낙하시켜 범위 피해를 입힘."
       ],
       "relations": ""
+    },
+    {
+      "id": "item-mwj0j27z-xc8fc",
+      "name": "새 캐릭터",
+      "en": "NEW PLAYER",
+      "registration": "GSO-BZ-006",
+      "species": "에어로닐",
+      "age": "",
+      "role": "",
+      "attribute": "",
+      "weapon": "",
+      "image": "uploads/mwj0okma-59ecebf497-character-1794818648400.webp",
+      "description": "",
+      "story": "",
+      "skills": [],
+      "relations": ""
     }
   ],
   "artworks": [
